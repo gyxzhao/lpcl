@@ -2,14 +2,14 @@ const express = require("express");
 const app = express();
 const { exec, execSync } = require('child_process');
 const port = process.env.SERVER_PORT || process.env.PORT || 3000;        
-const UUID = process.env.UUID || '986e0d08-b275-4dd3-9e75-f3094b36fa2a'; //若需要改UUID，需要在config.json里改为一致
-const NEZHA_SERVER = process.env.NEZHA_SERVER || 'nz.f4i.cn';     
-const NEZHA_PORT = process.env.NEZHA_PORT || '5555';                     // 哪吒端口为{443,8443,2096,2087,2083,2053}其中之一开启tls
-const NEZHA_KEY = process.env.NEZHA_KEY || 'N9BVoBfucVIrIzCBt8';   // 没用哪吒，把这个参数空着
-const ARGO_DOMAIN = process.env.ARGO_DOMAIN || 'choreo.zzx.free.hr';     // 建议使用token，argo端口8080，cf后台设置需对应,使用json需上传json和yml文件至files目录
-const ARGO_AUTH = process.env.ARGO_AUTH || 'eyJhIjoiOGI5NzI0MDgwZTU1ZTcwMzcwZmI3NDI4NzkyMmYzMWIiLCJ0IjoiOGNlY2VlYzQtYzZiNi00N2VkLThhZjItY2I4MThmMDkxZWJkIiwicyI6Ik5XWTFNV1ZsWm1NdFpEYzJZeTAwWkdSaExUbGtZall0TnpneVpqZ3haVE00WkRBNSJ9';
+const UUID = process.env.UUID || '747b656e-5408-43a4-985a-acacfb24c343'; //若需要改UUID，需要在config.json里改为一致
+const NEZHA_SERVER = process.env.NEZHA_SERVER || '';     
+const NEZHA_PORT = process.env.NEZHA_PORT || '';                     // 哪吒端口为{443,8443,2096,2087,2083,2053}其中之一开启tls
+const NEZHA_KEY = process.env.NEZHA_KEY || '';   // 没用哪吒，把这个参数空着
+const ARGO_DOMAIN = process.env.ARGO_DOMAIN || 'test.google.cloudns.biz';     // 建议使用token，argo端口8080，cf后台设置需对应,使用json需上传json和yml文件至files目录
+const ARGO_AUTH = process.env.ARGO_AUTH || 'eyJhIjoiZThlNmM2MmJjMGU0MTkxYWJhZTc3YzcyMjIyMTBhZTciLCJ0IjoiNDdiNjhkY2UtMTA2ZC00MzFiLWIyYzktNWYyZTY3NDBhNTY3IiwicyI6Ii8rRTQ5NzA5UlUrUlkyT3h4VHg0eFV1OE5DZXV1NjFjdEsrZUE4MFBlam89In0=';
 const CFIP = process.env.CFIP || 'www.visa.com.tw';
-const NAME = process.env.NAME || 'Choreo';
+const NAME = process.env.NAME || 'xxxx';
 
 // root route
 app.get("/", function(req, res) {
