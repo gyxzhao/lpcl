@@ -5,10 +5,10 @@ import http.server
 import socketserver
 import threading
 import requests
-from flask import Flask
 import json
 import time
 import base64
+from flask import Flask, send_from_directory
 
 app = Flask(__name__)
 
@@ -39,38 +39,27 @@ for file in paths_to_delete:
     except Exception as e:
         print(f"Skip Delete {file_path}")
 
-# http server
-class MyHandler(http.server.SimpleHTTPRequestHandler):
+# Flask routes
+@app.route('/')
+def home():
+    return 'Hello, world! Server is running.'
 
-    def log_message(self, format, *args):
-        pass
+@app.route('/sub')
+def sub():
+    try:
+        with open(os.path.join(FILE_PATH, 'sub.txt'), 'r') as file:
+            content = file.read()
+        return content, 200, {'Content-Type': 'text/plain; charset=utf-8'}
+    except FileNotFoundError:
+        return 'Error reading file', 500
 
-    def do_GET(self):
-        if self.path == '/':
-            self.send_response(200)
-            self.end_headers()
-            self.wfile.write(b'Hello, world')
-        elif self.path == '/sub':
-            try:
-                with open(os.path.join(FILE_PATH, 'sub.txt'), 'rb') as file:
-                    content = file.read()
-                self.send_response(200)
-                self.send_header('Content-Type', 'text/plain; charset=utf-8')
-                self.end_headers()
-                self.wfile.write(content)
-            except FileNotFoundError:
-                self.send_response(500)
-                self.end_headers()
-                self.wfile.write(b'Error reading file')
-        else:
-            self.send_response(404)
-            self.end_headers()
-            self.wfile.write(b'Not found')
+# Start Flask in a separate thread
+def run_flask():
+    app.run(host='0.0.0.0', port=PORT)
 
-httpd = socketserver.TCPServer(('', PORT), MyHandler)
-server_thread = threading.Thread(target=httpd.serve_forever)
-server_thread.daemon = True
-server_thread.start()
+flask_thread = threading.Thread(target=run_flask)
+flask_thread.daemon = True
+flask_thread.start()
 
 # Generate xr-ay config file
 def generate_config():
@@ -78,8 +67,6 @@ def generate_config():
 
     with open(os.path.join(FILE_PATH, 'config.json'), 'w', encoding='utf-8') as config_file:
         json.dump(config, config_file, ensure_ascii=False, indent=2)
-
-generate_config()
 
 # Copy executables to writable directory if needed
 def copy_executables():
@@ -144,9 +131,14 @@ def run_services():
 
 # Generate list and sub info
 def generate_links():
-    meta_info = subprocess.run(['curl', '-s', 'https://speed.cloudflare.com/meta'], capture_output=True, text=True)
-    meta_info = meta_info.stdout.split('"')
-    ISP = f"{meta_info[25]}-{meta_info[17]}".replace(' ', '_').strip()
+    try:
+        meta_info = subprocess.run(['curl', '-s', 'https://speed.cloudflare.com/meta'], capture_output=True, text=True)
+        meta_info = meta_info.stdout.split('"')
+        ISP = f"{meta_info[25]}-{meta_info[17]}".replace(' ', '_').strip()
+    except Exception as e:
+        print(f"Error getting meta info: {e}")
+        ISP = "Unknown"
+    
     time.sleep(2)
  
     list_txt = f"""
@@ -169,9 +161,9 @@ vless://{UUID}@{DOMAIN}:{VPORT}?encryption=none&security=tls&sni={DOMAIN}&type=w
         print(f"sub.txt not found")
     
     print(f'{FILE_PATH}/sub.txt saved successfully')
-    time.sleep(20)
+    time.sleep(5)  # 减少等待时间
 
-    # cleanup files
+    # 不要删除sub.txt文件，因为它需要被HTTP服务访问
     files_to_delete = ['list.txt','config.json']
     for file_to_delete in files_to_delete:
         file_path_to_delete = os.path.join(FILE_PATH, file_to_delete)
@@ -187,8 +179,9 @@ vless://{UUID}@{DOMAIN}:{VPORT}?encryption=none&security=tls&sni={DOMAIN}&type=w
          
 # Run the callback
 def start_server():
-    run_services()
-    generate_links()
+    generate_config()  # 先生成配置文件
+    run_services()     # 然后运行服务
+    generate_links()   # 最后生成链接
 start_server()
 
 # auto visit project page
