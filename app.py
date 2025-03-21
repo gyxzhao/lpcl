@@ -13,7 +13,8 @@ import base64
 app = Flask(__name__)
 
 # Set environment variables
-FILE_PATH = os.path.dirname(os.path.abspath(__file__))  # 使用当前脚本所在目录
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))  # 脚本所在目录
+FILE_PATH = '/tmp'  # 使用/tmp目录进行写入操作
 PROJECT_URL = os.environ.get('URL', '') # 填写项目分配的url可实现自动访问，例如：https://www.google.com，留空即不启用该功能
 INTERVAL_SECONDS = int(os.environ.get("TIME", 120))                   # 访问间隔时间，默认120s，单位：秒
 UUID = os.environ.get('UUID', 'abe2f2de-13ae-4f1f-bea5-d6c881ca3888')
@@ -25,7 +26,8 @@ NAME = os.environ.get('NAME', 'Vls')
 PORT = int(os.environ.get('PORT', 3000))            # http服务端口
 VPORT = int(os.environ.get('VPORT', 443))          # 节点端口,游戏玩具类需改为分配的端口,并关闭节点的tls
 
-print(f"Using directory: {FILE_PATH}")
+print(f"Script directory: {SCRIPT_DIR}")
+print(f"Using writable directory: {FILE_PATH}")
 
 # Clean old files
 paths_to_delete = ['list.txt','sub.txt']
@@ -79,6 +81,21 @@ def generate_config():
 
 generate_config()
 
+# Copy executables to writable directory if needed
+def copy_executables():
+    for file in ['swith', 'web']:
+        source_path = os.path.join(SCRIPT_DIR, file)
+        dest_path = os.path.join(FILE_PATH, file)
+        
+        if os.path.exists(source_path):
+            try:
+                shutil.copy2(source_path, dest_path)
+                print(f"Copied {file} to {dest_path}")
+            except Exception as e:
+                print(f"Error copying {file}: {e}")
+        else:
+            print(f"Source file {source_path} not found")
+
 # Authorize files
 def authorize_files(file_paths):
     new_permissions = 0o775
@@ -93,6 +110,9 @@ def authorize_files(file_paths):
 
 # Run services
 def run_services():
+    # Copy executables to writable directory
+    copy_executables()
+    
     # Authorize executables
     files_to_authorize = ['swith', 'web']
     authorize_files(files_to_authorize)
