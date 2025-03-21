@@ -1,14 +1,12 @@
 import os
 import shutil
 import subprocess
-import http.server
-import socketserver
 import threading
 import requests
 import json
 import time
 import base64
-from flask import Flask, send_from_directory
+from flask import Flask
 
 app = Flask(__name__)
 
@@ -23,7 +21,7 @@ NEZHA_PORT = os.environ.get('NEZHA_PORT', '5555')                  # 哪吒端�
 NEZHA_KEY = os.environ.get('NEZHA_KEY', '')
 DOMAIN = os.environ.get('DOMAIN', 'n1.mcst.io')                 # 分配的域名或反代的域名，不带前缀，例如：n1.mcst.io
 NAME = os.environ.get('NAME', 'Vls')
-PORT = int(os.environ.get('PORT', 3000))            # http服务端口
+PORT = int(os.environ.get('PORT', 8080))            # http服务端口
 VPORT = int(os.environ.get('VPORT', 443))          # 节点端口,游戏玩具类需改为分配的端口,并关闭节点的tls
 
 print(f"Script directory: {SCRIPT_DIR}")
@@ -38,28 +36,6 @@ for file in paths_to_delete:
         print(f"{file_path} has been deleted")
     except Exception as e:
         print(f"Skip Delete {file_path}")
-
-# Flask routes
-@app.route('/')
-def home():
-    return 'Hello, world! Server is running.'
-
-@app.route('/sub')
-def sub():
-    try:
-        with open(os.path.join(FILE_PATH, 'sub.txt'), 'r') as file:
-            content = file.read()
-        return content, 200, {'Content-Type': 'text/plain; charset=utf-8'}
-    except FileNotFoundError:
-        return 'Error reading file', 500
-
-# Start Flask in a separate thread
-def run_flask():
-    app.run(host='0.0.0.0', port=PORT)
-
-flask_thread = threading.Thread(target=run_flask)
-flask_thread.daemon = True
-flask_thread.start()
 
 # Generate xr-ay config file
 def generate_config():
@@ -95,6 +71,37 @@ def authorize_files(file_paths):
         except Exception as e:
             print(f"Empowerment failed for {absolute_file_path}: {e}")
 
+# Generate list and sub info
+def generate_links():
+    try:
+        meta_info = subprocess.run(['curl', '-s', 'https://speed.cloudflare.com/meta'], capture_output=True, text=True)
+        meta_info = meta_info.stdout.split('"')
+        ISP = f"{meta_info[25]}-{meta_info[17]}".replace(' ', '_').strip()
+    except Exception as e:
+        print(f"Error getting meta info: {e}")
+        ISP = "Unknown"
+    
+    list_txt = f"""
+vless://{UUID}@{DOMAIN}:{VPORT}?encryption=none&security=tls&sni={DOMAIN}&type=ws&host={DOMAIN}&path=%2Fvless%3Fed%3D2048#{NAME}-{ISP}
+  
+    """
+    
+    with open(os.path.join(FILE_PATH, 'list.txt'), 'w', encoding='utf-8') as list_file:
+        list_file.write(list_txt)
+
+    sub_txt = base64.b64encode(list_txt.encode('utf-8')).decode('utf-8')
+    with open(os.path.join(FILE_PATH, 'sub.txt'), 'w', encoding='utf-8') as sub_file:
+        sub_file.write(sub_txt)
+        
+    try:
+        with open(os.path.join(FILE_PATH, 'sub.txt'), 'rb') as file:
+            sub_content = file.read()
+        print(f"\n{sub_content.decode('utf-8')}")
+    except FileNotFoundError:
+        print(f"sub.txt not found")
+    
+    print(f'{FILE_PATH}/sub.txt saved successfully')
+
 # Run services
 def run_services():
     # Copy executables to writable directory
@@ -127,62 +134,35 @@ def run_services():
     except subprocess.CalledProcessError as e:
         print(f'web running error: {e}')
 
-    subprocess.run('sleep 3', shell=True)  # Wait for 3 seconds
-
-# Generate list and sub info
-def generate_links():
-    try:
-        meta_info = subprocess.run(['curl', '-s', 'https://speed.cloudflare.com/meta'], capture_output=True, text=True)
-        meta_info = meta_info.stdout.split('"')
-        ISP = f"{meta_info[25]}-{meta_info[17]}".replace(' ', '_').strip()
-    except Exception as e:
-        print(f"Error getting meta info: {e}")
-        ISP = "Unknown"
-    
-    time.sleep(2)
- 
-    list_txt = f"""
-vless://{UUID}@{DOMAIN}:{VPORT}?encryption=none&security=tls&sni={DOMAIN}&type=ws&host={DOMAIN}&path=%2Fvless%3Fed%3D2048#{NAME}-{ISP}
-  
-    """
-    
-    with open(os.path.join(FILE_PATH, 'list.txt'), 'w', encoding='utf-8') as list_file:
-        list_file.write(list_txt)
-
-    sub_txt = base64.b64encode(list_txt.encode('utf-8')).decode('utf-8')
-    with open(os.path.join(FILE_PATH, 'sub.txt'), 'w', encoding='utf-8') as sub_file:
-        sub_file.write(sub_txt)
-        
-    try:
-        with open(os.path.join(FILE_PATH, 'sub.txt'), 'rb') as file:
-            sub_content = file.read()
-        print(f"\n{sub_content.decode('utf-8')}")
-    except FileNotFoundError:
-        print(f"sub.txt not found")
-    
-    print(f'{FILE_PATH}/sub.txt saved successfully')
-    time.sleep(5)  # 减少等待时间
-
-    # 不要删除sub.txt文件，因为它需要被HTTP服务访问
-    files_to_delete = ['list.txt','config.json']
-    for file_to_delete in files_to_delete:
-        file_path_to_delete = os.path.join(FILE_PATH, file_to_delete)
-        try:
-            os.remove(file_path_to_delete)
-            print(f"{file_path_to_delete} has been deleted")
-        except Exception as e:
-            print(f"Error deleting {file_path_to_delete}: {e}")
-
-    print('\033c', end='')
-    print('App is running')
-    print('Thank you for using this script, enjoy!')
-         
-# Run the callback
+# Run the callback - 先执行所有初始化操作，最后才启动Flask
 def start_server():
     generate_config()  # 先生成配置文件
-    run_services()     # 然后运行服务
-    generate_links()   # 最后生成链接
+    generate_links()   # 然后生成链接文件
+    run_services()     # 最后运行服务
+    print('App is running')
+    print('Thank you for using this script, enjoy!')
+
+# 先执行初始化
 start_server()
+
+# Flask routes
+@app.route('/')
+def home():
+    return 'Hello, world! Server is running.'
+
+@app.route('/sub')
+def sub():
+    try:
+        with open(os.path.join(FILE_PATH, 'sub.txt'), 'r') as file:
+            content = file.read()
+        return content, 200, {'Content-Type': 'text/plain; charset=utf-8'}
+    except FileNotFoundError:
+        return 'Error reading file', 500
+
+@app.route('/kaithheathcheck')
+@app.route('/kaithhealthcheck')
+def healthcheck():
+    return 'OK', 200
 
 # auto visit project page
 has_logged_empty_message = False
@@ -198,14 +178,21 @@ def visit_project_page():
 
         response = requests.get(PROJECT_URL)
         response.raise_for_status() 
-
-        # print(f"Visiting project page: {PROJECT_URL}")
         print("Page visited successfully")
-        print('\033c', end='')
     except requests.exceptions.RequestException as error:
         print(f"Error visiting project page: {error}")
 
+# 启动Flask应用
 if __name__ == "__main__":
-    while True:
-        visit_project_page()
-        time.sleep(INTERVAL_SECONDS)
+    # 启动一个线程定期访问项目页面
+    def periodic_visit():
+        while True:
+            visit_project_page()
+            time.sleep(INTERVAL_SECONDS)
+    
+    visit_thread = threading.Thread(target=periodic_visit)
+    visit_thread.daemon = True
+    visit_thread.start()
+    
+    # 启动Flask应用
+    app.run(host='0.0.0.0', port=PORT, debug=False)
