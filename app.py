@@ -19,13 +19,16 @@ UUID = os.environ.get('UUID', 'abe2f2de-13ae-4f1f-bea5-d6c881ca3888')
 NEZHA_SERVER = os.environ.get('NEZHA_SERVER', 'nz.abcd.com')        # 哪吒3个变量不全不运行
 NEZHA_PORT = os.environ.get('NEZHA_PORT', '5555')                  # 哪吒端口为443时开启tls
 NEZHA_KEY = os.environ.get('NEZHA_KEY', '')
-DOMAIN = os.environ.get('DOMAIN', 'n1.mcst.io')                 # 分配的域名或反代的域名，不带前缀，例如：n1.mcst.io
+# 使用Leapcell分配的域名
+DOMAIN = os.environ.get('DOMAIN', 'lpcl-gyxzhao9316-r79shlmi.leapcell.dev')
 NAME = os.environ.get('NAME', 'Vls')
-PORT = int(os.environ.get('PORT', 8080))            # http服务端口
-VPORT = int(os.environ.get('VPORT', 443))          # 节点端口,游戏玩具类需改为分配的端口,并关闭节点的tls
+PORT = int(os.environ.get('PORT', 3000))            # http服务端口
+VPORT = int(os.environ.get('VPORT', 3000))          # 节点端口与HTTP端口相同
 
 print(f"Script directory: {SCRIPT_DIR}")
 print(f"Using writable directory: {FILE_PATH}")
+print(f"Using domain: {DOMAIN}")
+print(f"HTTP port: {PORT}, Node port: {VPORT}")
 
 # Clean old files
 paths_to_delete = ['list.txt','sub.txt']
@@ -39,10 +42,75 @@ for file in paths_to_delete:
 
 # Generate xr-ay config file
 def generate_config():
-    config = {"log": {"access": "/dev/null", "error": "/dev/null", "loglevel": "none",}, "inbounds": [{"port": VPORT, "protocol": "vless", "settings": {"clients": [{"id": UUID, "flow": "xtls-rprx-vision"}], "decryption": "none", "fallbacks": [{"dest": 3001}, {"path": "/vless", "dest": 3002},],}, "streamSettings": {"network": "tcp",},}, {"port": 3001, "listen": "127.0.0.1", "protocol": "vless", "settings": {"clients": [{"id": UUID}], "decryption": "none"}, "streamSettings": {"network": "ws", "security": "none"}}, {"port": 3002, "listen": "127.0.0.1", "protocol": "vless", "settings": {"clients": [{"id": UUID, "level": 0}], "decryption": "none"}, "streamSettings": {"network": "ws", "security": "none", "wsSettings": {"path": "/vless"}}, "sniffing": {"enabled": True, "destOverride": ["http", "tls", "quic"], "metadataOnly": False}},], "dns": {"servers": ["https+local://8.8.8.8/dns-query"]}, "outbounds": [{"protocol": "freedom"}, {"tag": "WARP", "protocol": "wireguard", "settings": {"secretKey": "YFYOAdbw1bKTHlNNi+aEjBM3BO7unuFC5rOkMRAz9XY=", "address": ["172.16.0.2/32", "2606:4700:110:8a36:df92:102a:9602:fa18/128"], "peers": [{"publicKey": "bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo=", "allowedIPs": ["0.0.0.0/0", "::/0"], "endpoint": "162.159.193.10:2408"}], "reserved": [78, 135, 76], "mtu": 1280}},], "routing": {"domainStrategy": "AsIs", "rules": [{"type": "field", "domain": ["domain:openai.com", "domain:ai.com"], "outboundTag": "WARP"},]}}
+    config = {
+        "log": {"access": "/dev/null", "error": "/dev/null", "loglevel": "none"},
+        "inbounds": [
+            {
+                "port": VPORT,
+                "protocol": "vless",
+                "settings": {
+                    "clients": [{"id": UUID, "flow": "xtls-rprx-vision"}],
+                    "decryption": "none",
+                    "fallbacks": [{"dest": 3001}, {"path": "/vless", "dest": 3002}]
+                },
+                "streamSettings": {"network": "tcp"}
+            },
+            {
+                "port": 3001,
+                "listen": "127.0.0.1",
+                "protocol": "vless",
+                "settings": {"clients": [{"id": UUID}], "decryption": "none"},
+                "streamSettings": {"network": "ws", "security": "none"}
+            },
+            {
+                "port": 3002,
+                "listen": "127.0.0.1",
+                "protocol": "vless",
+                "settings": {"clients": [{"id": UUID, "level": 0}], "decryption": "none"},
+                "streamSettings": {
+                    "network": "ws",
+                    "security": "none",
+                    "wsSettings": {"path": "/vless"}
+                },
+                "sniffing": {"enabled": True, "destOverride": ["http", "tls", "quic"], "metadataOnly": False}
+            }
+        ],
+        "dns": {"servers": ["https+local://8.8.8.8/dns-query"]},
+        "outbounds": [
+            {"protocol": "freedom"},
+            {
+                "tag": "WARP",
+                "protocol": "wireguard",
+                "settings": {
+                    "secretKey": "YFYOAdbw1bKTHlNNi+aEjBM3BO7unuFC5rOkMRAz9XY=",
+                    "address": ["172.16.0.2/32", "2606:4700:110:8a36:df92:102a:9602:fa18/128"],
+                    "peers": [
+                        {
+                            "publicKey": "bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo=",
+                            "allowedIPs": ["0.0.0.0/0", "::/0"],
+                            "endpoint": "162.159.193.10:2408"
+                        }
+                    ],
+                    "reserved": [78, 135, 76],
+                    "mtu": 1280
+                }
+            }
+        ],
+        "routing": {
+            "domainStrategy": "AsIs",
+            "rules": [
+                {
+                    "type": "field",
+                    "domain": ["domain:openai.com", "domain:ai.com"],
+                    "outboundTag": "WARP"
+                }
+            ]
+        }
+    }
 
     with open(os.path.join(FILE_PATH, 'config.json'), 'w', encoding='utf-8') as config_file:
         json.dump(config, config_file, ensure_ascii=False, indent=2)
+    print("Config file generated successfully")
 
 # Copy executables to writable directory if needed
 def copy_executables():
@@ -81,9 +149,9 @@ def generate_links():
         print(f"Error getting meta info: {e}")
         ISP = "Unknown"
     
+    # 使用WebSocket路径，端口使用VPORT
     list_txt = f"""
-vless://{UUID}@{DOMAIN}:{VPORT}?encryption=none&security=tls&sni={DOMAIN}&type=ws&host={DOMAIN}&path=%2Fvless%3Fed%3D2048#{NAME}-{ISP}
-  
+vless://{UUID}@{DOMAIN}:{VPORT}?encryption=none&security=tls&sni={DOMAIN}&type=ws&host={DOMAIN}&path=%2Fvless#{NAME}-{ISP}
     """
     
     with open(os.path.join(FILE_PATH, 'list.txt'), 'w', encoding='utf-8') as list_file:
@@ -96,7 +164,7 @@ vless://{UUID}@{DOMAIN}:{VPORT}?encryption=none&security=tls&sni={DOMAIN}&type=w
     try:
         with open(os.path.join(FILE_PATH, 'sub.txt'), 'rb') as file:
             sub_content = file.read()
-        print(f"\n{sub_content.decode('utf-8')}")
+        print(f"\nSubscription content: {sub_content.decode('utf-8')}")
     except FileNotFoundError:
         print(f"sub.txt not found")
     
@@ -119,18 +187,21 @@ def run_services():
         try:
             subprocess.run(command, shell=True, check=True)
             print('swith is running')
-            subprocess.run('sleep 1', shell=True)  # Wait for 1 second
         except subprocess.CalledProcessError as e:
             print(f'swith running error: {e}')
     else:
         print('NEZHA variable is empty, skip running')
 
-    # Run xr-ay
-    command1 = f"nohup {os.path.join(FILE_PATH, 'web')} -c {os.path.join(FILE_PATH, 'config.json')} >/dev/null 2>&1 &"
+    # Run xr-ay with more verbose output
     try:
+        # 先检查是否有旧进程
+        subprocess.run("pkill -f web || true", shell=True)
+        time.sleep(1)
+        
+        # 启动web服务并捕获输出
+        command1 = f"{os.path.join(FILE_PATH, 'web')} -c {os.path.join(FILE_PATH, 'config.json')} &"
         subprocess.run(command1, shell=True, check=True)
         print('web is running')
-        subprocess.run('sleep 1', shell=True)  # Wait for 1 second
     except subprocess.CalledProcessError as e:
         print(f'web running error: {e}')
 
@@ -163,6 +234,33 @@ def sub():
 @app.route('/kaithhealthcheck')
 def healthcheck():
     return 'OK', 200
+
+@app.route('/status')
+def status():
+    # 检查web进程是否运行
+    web_running = subprocess.run("pgrep -f web", shell=True, capture_output=True).returncode == 0
+    # 检查swith进程是否运行
+    swith_running = subprocess.run("pgrep -f swith", shell=True, capture_output=True).returncode == 0
+    
+    status_info = {
+        "web_running": web_running,
+        "swith_running": swith_running,
+        "domain": DOMAIN,
+        "port": VPORT,
+        "uuid": UUID
+    }
+    
+    return f"""
+    <html>
+    <head><title>Status</title></head>
+    <body>
+        <h1>Status</h1>
+        <pre>{json.dumps(status_info, indent=2)}</pre>
+        <h2>Environment</h2>
+        <pre>{json.dumps(dict(os.environ), indent=2)}</pre>
+    </body>
+    </html>
+    """
 
 # auto visit project page
 has_logged_empty_message = False
